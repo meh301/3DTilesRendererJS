@@ -95,5 +95,8 @@
     "react-dom": {
       "optional": true
     }
+  },
+  "dependencies": {
+    "@spatial-id/javascript-sdk": "github:spatial-id/javascript-sdk"
   }
 }
