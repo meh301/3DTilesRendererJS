@@ -1,4 +1,4 @@
-import { TilesRenderer } from '3d-tiles-renderer';
+import { TilesRenderer } from "3d-tiles-renderer";
 import {
 	Scene,
 	DirectionalLight,
@@ -12,10 +12,10 @@ import {
 	MeshStandardMaterial,
 	PCFSoftShadowMap,
 	Sphere,
-} from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
-import Stats from 'three/examples/jsm/libs/stats.module.js';
+} from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
+import Stats from "three/examples/jsm/libs/stats.module.js";
 
 let camera, controls, scene, renderer, tiles, orthoCamera;
 let offsetParent, box, sphere, dirLight, statsContainer;
@@ -26,15 +26,13 @@ const GRADIENT = 1;
 const TOPOGRAPHIC_LINES = 2;
 const LIGHTING = 3;
 const params = {
-
-	'material': DEFAULT,
-	'orthographic': false,
-	'rebuild': initTiles,
-
+	material: DEFAULT,
+	orthographic: false,
+	rebuild: initTiles,
 };
 
 const gradientShader = {
-	vertexShader: /* glsl */`
+	vertexShader: /* glsl */ `
 		varying vec3 wPosition;
 		void main() {
 
@@ -44,7 +42,7 @@ const gradientShader = {
 
 		}
 	`,
-	fragmentShader: /* glsl */`
+	fragmentShader: /* glsl */ `
 		varying vec3 wPosition;
 		void main() {
 
@@ -60,14 +58,13 @@ const gradientShader = {
 
 		}
 	`,
-
 };
 
 const topoShader = {
 	extensions: {
 		derivatives: true,
 	},
-	vertexShader: /* glsl */`
+	vertexShader: /* glsl */ `
 		varying vec3 wPosition;
 		varying vec3 vViewPosition;
 		void main() {
@@ -79,7 +76,7 @@ const topoShader = {
 
 		}
 	`,
-	fragmentShader: /* glsl */`
+	fragmentShader: /* glsl */ `
 		varying vec3 wPosition;
 		varying vec3 vViewPosition;
 		void main() {
@@ -114,22 +111,17 @@ const topoShader = {
 
 		}
 	`,
-
 };
 
 init();
 animate();
 
-function updateMaterial( scene ) {
-
-	const materialIndex = parseFloat( params.material );
-	scene.traverse( c => {
-
-		if ( c.isMesh ) {
-
+function updateMaterial(scene) {
+	const materialIndex = parseFloat(params.material);
+	scene.traverse((c) => {
+		if (c.isMesh) {
 			c.material.dispose();
-			switch ( materialIndex ) {
-
+			switch (materialIndex) {
 				case DEFAULT:
 					c.material = c.originalMaterial;
 					c.material.side = 2;
@@ -137,233 +129,203 @@ function updateMaterial( scene ) {
 					c.castShadow = false;
 					break;
 				case GRADIENT:
-					c.material = new ShaderMaterial( gradientShader );
+					c.material = new ShaderMaterial(gradientShader);
 					c.material.side = 2;
 					c.receiveShadow = false;
 					c.castShadow = false;
 					break;
 				case TOPOGRAPHIC_LINES:
-					c.material = new ShaderMaterial( topoShader );
+					c.material = new ShaderMaterial(topoShader);
 					c.material.side = 2;
 					c.material.flatShading = true;
 					c.receiveShadow = false;
 					c.castShadow = false;
 					break;
 				case LIGHTING:
-					c.material = new MeshStandardMaterial();
+					c.material = new MeshStandardMaterial({
+						color: 0xffff00,
+						wireframe: true,
+						depthTest: true,
+					});
 					c.material.side = 2;
 					c.receiveShadow = true;
 					c.castShadow = true;
-
 			}
-
-
 		}
-
-	} );
-
+	});
 }
 
-function onLoadModel( { scene } ) {
-
-	scene.traverse( c => {
-
-		if ( c.isMesh ) {
-
+function onLoadModel({ scene }) {
+	scene.traverse((c) => {
+		if (c.isMesh) {
 			c.originalMaterial = c.material;
-
 		}
+	});
 
-	} );
-
-	updateMaterial( scene );
-
+	updateMaterial(scene);
 }
 
-function onDisposeModel( { scene } ) {
-
-	scene.traverse( c => {
-
-		if ( c.isMesh ) {
-
+function onDisposeModel({ scene }) {
+	scene.traverse((c) => {
+		if (c.isMesh) {
 			c.material.dispose();
-
 		}
-
-	} );
-
+	});
 }
 
 function initTiles() {
-
-	if ( tiles ) {
-
-		tiles.group.parent.remove( tiles.group );
+	if (tiles) {
+		tiles.group.parent.remove(tiles.group);
 		tiles.dispose();
-
 	}
 
-	const url = window.location.hash.replace( /^#/, '' ) || '../data/tileset.json';
-	tiles = new TilesRenderer( url );
+	const url = window.location.hash.replace(/^#/, "") || "../data/tileset.json";
+	tiles = new TilesRenderer(url);
 	tiles.errorTarget = 2;
-	tiles.addEventListener( 'load-model', onLoadModel );
-	tiles.addEventListener( 'dispose-model', onDisposeModel );
-	offsetParent.add( tiles.group );
-
+	tiles.addEventListener("load-model", onLoadModel);
+	tiles.addEventListener("dispose-model", onDisposeModel);
+	offsetParent.add(tiles.group);
 }
 
 function init() {
-
 	scene = new Scene();
 
 	// primary camera view
-	renderer = new WebGLRenderer( { antialias: true } );
-	renderer.setPixelRatio( window.devicePixelRatio );
-	renderer.setSize( window.innerWidth, window.innerHeight );
-	renderer.setClearColor( 0x151c1f );
+	renderer = new WebGLRenderer({ antialias: true });
+	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setClearColor(0x151c1f);
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = PCFSoftShadowMap;
 
-	document.body.appendChild( renderer.domElement );
+	document.body.appendChild(renderer.domElement);
 
-	camera = new PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 4000 );
-	camera.position.set( 400, 400, 400 );
+	camera = new PerspectiveCamera(
+		60,
+		window.innerWidth / window.innerHeight,
+		1,
+		4000
+	);
+	camera.position.set(400, 400, 400);
 
 	orthoCamera = new OrthographicCamera();
 
 	// controls
-	controls = new OrbitControls( camera, renderer.domElement );
+	controls = new OrbitControls(camera, renderer.domElement);
 	controls.screenSpacePanning = false;
 	controls.minDistance = 1;
 	controls.maxDistance = 2000;
 
 	// lights
-	dirLight = new DirectionalLight( 0xffffff, 1.25 );
-	dirLight.position.set( 1, 2, 3 ).multiplyScalar( 40 );
+	dirLight = new DirectionalLight(0xffffff, 1.25);
+	dirLight.position.set(1, 2, 3).multiplyScalar(40);
 	dirLight.castShadow = true;
-	dirLight.shadow.bias = - 0.01;
-	dirLight.shadow.mapSize.setScalar( 2048 );
+	dirLight.shadow.bias = -0.01;
+	dirLight.shadow.mapSize.setScalar(2048);
 
 	const shadowCam = dirLight.shadow.camera;
-	shadowCam.left = - 200;
-	shadowCam.bottom = - 200;
+	shadowCam.left = -200;
+	shadowCam.bottom = -200;
 	shadowCam.right = 200;
 	shadowCam.top = 200;
 	shadowCam.updateProjectionMatrix();
 
-	scene.add( dirLight );
+	scene.add(dirLight);
 
-	const ambLight = new AmbientLight( 0xffffff, 0.05 );
-	scene.add( ambLight );
+	const ambLight = new AmbientLight(0xffffff, 0.05);
+	scene.add(ambLight);
 
 	box = new Box3();
 	sphere = new Sphere();
 
 	offsetParent = new Group();
-	scene.add( offsetParent );
+	scene.add(offsetParent);
 
 	initTiles();
 
 	onWindowResize();
-	window.addEventListener( 'resize', onWindowResize, false );
+	window.addEventListener("resize", onWindowResize, false);
 
 	// GUI
 	const gui = new GUI();
 	gui.width = 300;
-	gui.add( params, 'orthographic' );
-	gui.add( params, 'material', { DEFAULT, GRADIENT, TOPOGRAPHIC_LINES, LIGHTING } )
-		.onChange( () => {
-
-			tiles.forEachLoadedModel( updateMaterial );
-
-		} );
-	gui.add( params, 'rebuild' );
+	gui.add(params, "orthographic");
+	gui
+		.add(params, "material", { DEFAULT, GRADIENT, TOPOGRAPHIC_LINES, LIGHTING })
+		.onChange(() => {
+			tiles.forEachLoadedModel(updateMaterial);
+		});
+	gui.add(params, "rebuild");
 	gui.open();
 
 	// Stats
 	stats = new Stats();
-	stats.showPanel( 0 );
-	document.body.appendChild( stats.dom );
+	stats.showPanel(0);
+	document.body.appendChild(stats.dom);
 
-	statsContainer = document.createElement( 'div' );
-	statsContainer.style.position = 'absolute';
+	statsContainer = document.createElement("div");
+	statsContainer.style.position = "absolute";
 	statsContainer.style.top = 0;
 	statsContainer.style.left = 0;
-	statsContainer.style.color = 'white';
-	statsContainer.style.width = '100%';
-	statsContainer.style.textAlign = 'center';
-	statsContainer.style.padding = '5px';
-	statsContainer.style.pointerEvents = 'none';
-	statsContainer.style.lineHeight = '1.5em';
-	document.body.appendChild( statsContainer );
-
+	statsContainer.style.color = "white";
+	statsContainer.style.width = "100%";
+	statsContainer.style.textAlign = "center";
+	statsContainer.style.padding = "5px";
+	statsContainer.style.pointerEvents = "none";
+	statsContainer.style.lineHeight = "1.5em";
+	document.body.appendChild(statsContainer);
 }
 
 function onWindowResize() {
-
 	camera.aspect = window.innerWidth / window.innerHeight;
-	renderer.setPixelRatio( window.devicePixelRatio );
-	renderer.setSize( window.innerWidth, window.innerHeight );
+	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setSize(window.innerWidth, window.innerHeight);
 	camera.updateProjectionMatrix();
 
 	updateOrthoCamera();
-
 }
 
 function updateOrthoCamera() {
+	orthoCamera.position.copy(camera.position);
+	orthoCamera.rotation.copy(camera.rotation);
 
-	orthoCamera.position.copy( camera.position );
-	orthoCamera.rotation.copy( camera.rotation );
-
-	const scale = camera.position.distanceTo( controls.target ) / 2.0;
+	const scale = camera.position.distanceTo(controls.target) / 2.0;
 	const aspect = window.innerWidth / window.innerHeight;
-	orthoCamera.left = - aspect * scale;
+	orthoCamera.left = -aspect * scale;
 	orthoCamera.right = aspect * scale;
-	orthoCamera.bottom = - scale;
+	orthoCamera.bottom = -scale;
 	orthoCamera.top = scale;
 	orthoCamera.near = camera.near;
 	orthoCamera.far = camera.far;
 	orthoCamera.updateProjectionMatrix();
-
 }
 
 function animate() {
+	requestAnimationFrame(animate);
 
-	requestAnimationFrame( animate );
-
-	if ( params.orthographic ) {
-
-		tiles.deleteCamera( camera );
-		tiles.setCamera( orthoCamera );
-		tiles.setResolutionFromRenderer( orthoCamera, renderer );
-
+	if (params.orthographic) {
+		tiles.deleteCamera(camera);
+		tiles.setCamera(orthoCamera);
+		tiles.setResolutionFromRenderer(orthoCamera, renderer);
 	} else {
-
-		tiles.deleteCamera( orthoCamera );
-		tiles.setCamera( camera );
-		tiles.setResolutionFromRenderer( camera, renderer );
-
+		tiles.deleteCamera(orthoCamera);
+		tiles.setCamera(camera);
+		tiles.setResolutionFromRenderer(camera, renderer);
 	}
 
-	offsetParent.rotation.set( 0, 0, 0 );
-	if ( params.up === '-Z' ) {
-
+	offsetParent.rotation.set(0, 0, 0);
+	if (params.up === "-Z") {
 		offsetParent.rotation.x = Math.PI / 2;
-
 	}
-	offsetParent.updateMatrixWorld( true );
+	offsetParent.updateMatrixWorld(true);
 
 	// update tiles center
-	if ( tiles.getBoundingBox( box ) ) {
-
-		box.getCenter( tiles.group.position );
-		tiles.group.position.multiplyScalar( - 1 );
-
-	} else if ( tiles.getBoundingSphere( sphere ) ) {
-
-		tiles.group.position.copy( sphere.center );
-		tiles.group.position.multiplyScalar( - 1 );
-
+	if (tiles.getBoundingBox(box)) {
+		box.getCenter(tiles.group.position);
+		tiles.group.position.multiplyScalar(-1);
+	} else if (tiles.getBoundingSphere(sphere)) {
+		tiles.group.position.copy(sphere.center);
+		tiles.group.position.multiplyScalar(-1);
 	}
 
 	// update tiles
@@ -374,18 +336,15 @@ function animate() {
 
 	render();
 	stats.update();
-
 }
 
 function render() {
-
 	updateOrthoCamera();
 
 	statsContainer.innerText =
-		`Geometries: ${ renderer.info.memory.geometries } ` +
-		`Textures: ${ renderer.info.memory.textures } ` +
-		`Programs: ${ renderer.info.programs.length } `;
+		`Geometries: ${renderer.info.memory.geometries} ` +
+		`Textures: ${renderer.info.memory.textures} ` +
+		`Programs: ${renderer.info.programs.length} `;
 
-	renderer.render( scene, params.orthographic ? orthoCamera : camera );
-
+	renderer.render(scene, params.orthographic ? orthoCamera : camera);
 }

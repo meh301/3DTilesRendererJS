@@ -1,36 +1,51 @@
-import { searchForWorkspaceRoot, loadEnv } from 'vite';
-import fs from 'fs';
-import react from '@vitejs/plugin-react';
+import { searchForWorkspaceRoot, loadEnv } from "vite";
+import fs from "fs";
+import path from "path";
+import react from "@vitejs/plugin-react";
 
-export default ( { mode } ) => {
-
-	process.env = { ...process.env, ...loadEnv( mode, process.cwd() ) };
+export default ({ mode }) => {
+	process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
 
 	return {
-
-		root: './example/',
-		envDir: '.',
-		base: '',
+		root: "./example/",
+		envDir: ".",
+		base: "",
 		build: {
-			outDir: './bundle/',
+			outDir: "./bundle/",
 			rollupOptions: {
 				input: [
-					...fs.readdirSync( './example/' ),
-					...fs.readdirSync( './example/r3f/' ).map( name => 'r3f/' + name ),
+					...fs.readdirSync("./example/"),
+					...fs.readdirSync("./example/r3f/").map((name) => "r3f/" + name),
 				]
-					.filter( p => /\.html$/.test( p ) )
-					.map( p => `./example/${ p }` ),
+					.filter((p) => /\.html$/.test(p))
+					.map((p) => `./example/${p}`),
 			},
 		},
 		server: {
 			fs: {
 				allow: [
 					// search up for workspace root
-					searchForWorkspaceRoot( process.cwd() ),
+					searchForWorkspaceRoot(process.cwd()),
 				],
 			},
+			middlewares: [
+				(req, res, next) => {
+					if (req.url.startsWith("/datasets/")) {
+						const filePath = path.join(
+							process.cwd(),
+							"datasets",
+							req.url.replace("/datasets/", "")
+						);
+						if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+							res.setHeader("Content-Type", "application/octet-stream");
+							fs.createReadStream(filePath).pipe(res);
+							return;
+						}
+					}
+					next();
+				},
+			],
 		},
-		plugins: [ react() ],
+		plugins: [react()],
 	};
-
 };

@@ -1,0 +1,429 @@
+{
+  "id": "customFromIfcDocument",
+  "classes": {
+    "merged": {
+      "properties": {
+        "psetStairFlightCommonTreadLengthAtOffset": {
+          "name": "Pset_StairFlightCommon : TreadLengthAtOffset",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetStairFlightCommonRiserHeight": {
+          "name": "Pset_StairFlightCommon : RiserHeight",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetStairFlightCommonNumberOfTreads": {
+          "name": "Pset_StairFlightCommon : NumberOfTreads",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetStairFlightCommonWalkingLineOffset": {
+          "name": "Pset_StairFlightCommon : WalkingLineOffset",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetStairFlightCommonNumberOfRiser": {
+          "name": "Pset_StairFlightCommon : NumberOfRiser",
+          "type": "STRING",
+          "noData": ""
+        },
+        "numberOfTreads": {
+          "name": "NumberOfTreads",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "riserHeight": {
+          "name": "RiserHeight",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "treadLength": {
+          "name": "TreadLength",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetStairFlightCommonTreadLength": {
+          "name": "Pset_StairFlightCommon : TreadLength",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetRoofCommonProjectedArea": {
+          "name": "Pset_RoofCommon : ProjectedArea",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetRoofCommonTotalArea": {
+          "name": "Pset_RoofCommon : TotalArea",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetRoofCommonIsExternal": {
+          "name": "Pset_RoofCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetSlabCommonReference": {
+          "name": "Pset_SlabCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "refLatitude": {
+          "name": "RefLatitude",
+          "type": "STRING",
+          "noData": ""
+        },
+        "compositionType": {
+          "name": "CompositionType",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetPlateCommonIsExternal": {
+          "name": "Pset_PlateCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetDoorCommonReference": {
+          "name": "Pset_DoorCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetRoofCommonReference": {
+          "name": "Pset_RoofCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "predefinedType": {
+          "name": "PredefinedType",
+          "type": "STRING",
+          "noData": ""
+        },
+        "refElevation": {
+          "name": "RefElevation",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetSlabCommonPitchAngle": {
+          "name": "Pset_SlabCommon : PitchAngle",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetWallCommonLoadBearing": {
+          "name": "Pset_WallCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetBeamCommonIsExternal": {
+          "name": "Pset_BeamCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetWallCommonExtendToStructure": {
+          "name": "Pset_WallCommon : ExtendToStructure",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "representation": {
+          "name": "Representation",
+          "type": "STRING",
+          "noData": ""
+        },
+        "name_1": {
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetBeamCommonReference": {
+          "name": "Pset_BeamCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "objectPlacement": {
+          "name": "ObjectPlacement",
+          "type": "STRING",
+          "noData": ""
+        },
+        "overallHeight": {
+          "name": "OverallHeight",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetDoorCommonIsExternal": {
+          "name": "Pset_DoorCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "overallWidth": {
+          "name": "OverallWidth",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "name": {
+          "name": "Name",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetMemberCommonReference": {
+          "name": "Pset_MemberCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetWallCommonThermalTransmittance": {
+          "name": "Pset_WallCommon : ThermalTransmittance",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetStairFlightCommonReference": {
+          "name": "Pset_StairFlightCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetBeamCommonLoadBearing": {
+          "name": "Pset_BeamCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "className": {
+          "name": "Class Name",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetWallCommonReference": {
+          "name": "Pset_WallCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetPlateCommonLoadBearing": {
+          "name": "Pset_PlateCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetBeamCommonSpan": {
+          "name": "Pset_BeamCommon : Span",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetRailingCommonIsExternal": {
+          "name": "Pset_RailingCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetManufacturerTypeInformationManufacturer": {
+          "name": "Pset_ManufacturerTypeInformation : Manufacturer",
+          "type": "STRING",
+          "noData": ""
+        },
+        "ownerHistory": {
+          "name": "OwnerHistory",
+          "type": "STRING",
+          "noData": ""
+        },
+        "objectType": {
+          "name": "ObjectType",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetWindowCommonIsExternal": {
+          "name": "Pset_WindowCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetBeamCommonSlope": {
+          "name": "Pset_BeamCommon : Slope",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "globalId": {
+          "name": "GlobalId",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetWallCommonIsExternal": {
+          "name": "Pset_WallCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetMemberCommonSpan": {
+          "name": "Pset_MemberCommon : Span",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetPlateCommonThermalTransmittance": {
+          "name": "Pset_PlateCommon : ThermalTransmittance",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetWindowCommonReference": {
+          "name": "Pset_WindowCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetBuildingElementProxyCommonReference": {
+          "name": "Pset_BuildingElementProxyCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetCoveringCommonReference": {
+          "name": "Pset_CoveringCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetStairFlightCommonWaistThickness": {
+          "name": "Pset_StairFlightCommon : WaistThickness",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetCoveringCommonFinish": {
+          "name": "Pset_CoveringCommon : Finish",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetCoveringCommonTotalThickness": {
+          "name": "Pset_CoveringCommon : TotalThickness",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetMemberCommonLoadBearing": {
+          "name": "Pset_MemberCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "tag": {
+          "name": "Tag",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetMemberCommonIsExternal": {
+          "name": "Pset_MemberCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetSlabCommonLoadBearing": {
+          "name": "Pset_SlabCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetRampFlightCommonReference": {
+          "name": "Pset_RampFlightCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetSlabCommonThermalTransmittance": {
+          "name": "Pset_SlabCommon : ThermalTransmittance",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetStairFlightCommonNosingLength": {
+          "name": "Pset_StairFlightCommon : NosingLength",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetColumnCommonIsExternal": {
+          "name": "Pset_ColumnCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetColumnCommonReference": {
+          "name": "Pset_ColumnCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetColumnCommonLoadBearing": {
+          "name": "Pset_ColumnCommon : LoadBearing",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "refLongitude": {
+          "name": "RefLongitude",
+          "type": "STRING",
+          "noData": ""
+        },
+        "numberOfRisers": {
+          "name": "NumberOfRisers",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetSlabCommonIsExternal": {
+          "name": "Pset_SlabCommon : IsExternal",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetDistributionFlowElementCommonReference": {
+          "name": "Pset_DistributionFlowElementCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "psetMemberCommonSlope": {
+          "name": "Pset_MemberCommon : Slope",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        },
+        "psetPlateCommonReference": {
+          "name": "Pset_PlateCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "expressId": {
+          "name": "Express ID",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetRailingCommonReference": {
+          "name": "Pset_RailingCommon : Reference",
+          "type": "STRING",
+          "noData": ""
+        },
+        "classId": {
+          "name": "Class ID",
+          "type": "SCALAR",
+          "componentType": "UINT32",
+          "noData": 0
+        },
+        "psetRailingCommonHeight": {
+          "name": "Pset_RailingCommon : Height",
+          "type": "SCALAR",
+          "componentType": "FLOAT32",
+          "noData": 0.0
+        }
+      }
+    }
+  }
+}
