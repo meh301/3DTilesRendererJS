@@ -608,13 +608,6 @@ function init() {
 			const southEdge = new THREE.Vector3().subVectors(corners[1], corners[0]);
 			const upEdge = new THREE.Vector3().subVectors(corners[4], corners[0]);
 
-			// lengths along each axis
-			const size = new THREE.Vector3(
-				eastEdge.length(),
-				southEdge.length(),
-				upEdge.length()
-			);
-
 			// local → world rotation
 			const mBasis = new THREE.Matrix4().makeBasis(
 				eastEdge.clone().normalize(),
@@ -634,6 +627,22 @@ function init() {
 			const y0 = minT.y,
 				y1 = maxT.y;
 
+			const countX = x1 - x0 + 1;
+			const countY = y1 - y0 + 1;
+			const countZ = f1 - f0 + 1;
+
+			// lengths along each axis
+			// const size = new THREE.Vector3(
+			// 	eastEdge.length(),
+			// 	southEdge.length(),
+			// 	upEdge.length()
+			// );
+			const size = new THREE.Vector3(
+				eastEdge.length() * countX,
+				southEdge.length() * countY,
+				upEdge.length() * countZ
+			);
+
 			// build a single BoxGeometry + Material
 			const geom = new THREE.BoxGeometry(size.x, size.y, size.z);
 			const mat = new THREE.MeshBasicMaterial({
@@ -642,28 +651,50 @@ function init() {
 				depthTest: true,
 			});
 
-			// 11) for each voxel in that range, spawn one oriented cube
-			for (let f = f0; f <= f1; f++) {
-				for (let x = x0; x <= x1; x++) {
-					for (let y = y0; y <= y1; y++) {
-						const sid = `/${z}/${f}/${x}/${y}`;
-						const space = new Space(sid);
-						const { lat, lng, alt } = space.center;
-						const center = new THREE.Vector3(
-							...projector.project(lat, lng, alt + altOffset)
-						);
+			const origin = corners[0];
+			const center = origin
+				.clone()
+				.add(eastEdge.clone().multiplyScalar(countX / 2))
+				.add(southEdge.clone().multiplyScalar(countY / 2))
+				.add(upEdge.clone().multiplyScalar(countZ / 2));
 
-						const box = new THREE.Mesh(geom, mat);
-						box.applyMatrix4(mBasis);
-						box.position.copy(center);
-						sensorGroup.add(box);
-						const axesHelper = new THREE.AxesHelper(5000);
-						axesHelper.applyMatrix4(mBasis);
-						axesHelper.position.copy(center);
-						sensorGroup.add(axesHelper);
-					}
-				}
-			}
+			const mesh = new THREE.Mesh(geom, mat);
+
+			// apply the exact same basis you had (unit‐voxel orientation)
+			mesh.applyMatrix4(mBasis);
+
+			// place it at the calculated center
+			mesh.position.copy(center);
+
+			sensorGroup.add(mesh);
+
+			const axesHelper = new THREE.AxesHelper(5000);
+			axesHelper.applyMatrix4(mBasis);
+			axesHelper.position.copy(center);
+			sensorGroup.add(axesHelper);
+
+			// 11) for each voxel in that range, spawn one oriented cube
+			// for (let f = f0; f <= f1; f++) {
+			// 	for (let x = x0; x <= x1; x++) {
+			// 		for (let y = y0; y <= y1; y++) {
+			// 			const sid = `/${z}/${f}/${x}/${y}`;
+			// 			const space = new Space(sid);
+			// 			const { lat, lng, alt } = space.center;
+			// 			const center = new THREE.Vector3(
+			// 				...projector.project(lat, lng, alt + altOffset)
+			// 			);
+
+			// 			const box = new THREE.Mesh(geom, mat);
+			// 			box.applyMatrix4(mBasis);
+			// 			box.position.copy(center);
+			// 			sensorGroup.add(box);
+			// 			const axesHelper = new THREE.AxesHelper(5000);
+			// 			axesHelper.applyMatrix4(mBasis);
+			// 			axesHelper.position.copy(center);
+			// 			sensorGroup.add(axesHelper);
+			// 		}
+			// 	}
+			// }
 		}
 	};
 
