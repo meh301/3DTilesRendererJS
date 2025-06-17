@@ -48,16 +48,35 @@ let iref, irefRegion, osakaexpo;
 let helper;
 let fov;
 let sensorGroup;
-let voxelMesh = null;
-let allVoxelPositions = [];
 const voxelSize = 1;
 const clippingPlanes = [];
 
-const maxDistNear = 50; // full density inside 3 km
-const maxDistFar = 200; // absolute far‐clip at 10 km
-const lodFalloff = 100; // how quickly we drop density
-let frustum = new Frustum();
-let projScreenMatrix = new Matrix4();
+// Max number of voxels you ever want to draw in one frame
+const MAX_VOXELS = 500000;
+
+// distance thresholds (in meters)
+const maxDistNear = 100; // inside here, draw every point
+const maxDistFar = 200; // beyond here, never draw
+const lodFalloff = 150; // how quickly to skip as you go out
+
+// squared distance for faster checks
+const maxFarSq = maxDistFar * maxDistFar;
+
+// one shared tmp Vector3 and Matrix4 to avoid allocations:
+const tmpV = new THREE.Vector3();
+const tmpMat = new THREE.Matrix4();
+
+// projection‐frustum helpers:
+const projScreenMatrix = new THREE.Matrix4();
+const frustum = new THREE.Frustum();
+
+// camera pos helper
+const camPos = new THREE.Vector3();
+
+// map from tile.id → Float32Array of world‐space [x,y,z, x,y,z,…]
+const visibleTilePositions = new Map();
+
+let voxelMesh = null;
 
 const Z_CONST = 28;
 const R_EQUATOR = 6_378_137; // WGS84 equatorial radius [m]
@@ -343,84 +362,113 @@ function reinstantiateTiles() {
 	// });
 	scene.add(tiles2.group);
 
-	tiles2.addEventListener("load-model", (e) => {
-		// 1) extract every point’s world position
-		allVoxelPositions.length = 0;
-		tiles2.group.traverse((obj) => {
-			// we know tiles2 is a THREE.Points
-			if (obj.isPoints && obj.geometry.attributes.position) {
-				const posAttr = obj.geometry.attributes.position;
-				const matWorld = obj.matrixWorld;
-				const p = new THREE.Vector3();
-				for (let i = 0; i < posAttr.count; i++) {
-					p.fromBufferAttribute(posAttr, i).applyMatrix4(matWorld);
-					allVoxelPositions.push(p.clone());
-				}
-			}
-		});
-
-		// 2) create the InstancedMesh once
-		const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
-		const boxMat = new THREE.MeshBasicMaterial({
-			color: 0xffffff,
-			wireframe: true,
-			depthTest: false,
-		});
-
-		voxelMesh = new THREE.InstancedMesh(
-			boxGeo,
-			boxMat,
-			allVoxelPositions.length
-		);
-		voxelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-		scene.add(voxelMesh);
-
-		// hide the original point cloud if you like:
+	tiles2.addEventListener("tile-visibility-change", (e) => {
 		tiles2.group.visible = false;
-		pointcloudtilesloaded = true;
-	});
+		const pts = e.scene; // this is your THREE.Points
+		// console.log(pts);
+		if (!pts.isPoints) return; // bail if it somehow isn’t
 
-	tiles2.addEventListener("needs-update", (e) => {
-		if (pointcloudtilesloaded && tiles2) {
-			console.log("actuates!");
+		let uuid;
+		let posAttr;
+		let worldMat;
+
+		if (e.visible) {
+			uuid = pts.uuid; // unique key per tile
+			posAttr = pts.geometry.attributes.position;
+			worldMat = pts.matrixWorld;
+
+			// → tile just became visible
+			if (visibleTilePositions.has(uuid)) return; // already baked
+
+			const arr = new Float32Array(posAttr.count * 3);
+			const p = new THREE.Vector3();
+			for (let i = 0; i < posAttr.count; i++) {
+				p.fromBufferAttribute(posAttr, i).applyMatrix4(worldMat);
+				arr[3 * i] = p.x;
+				arr[3 * i + 1] = p.y;
+				arr[3 * i + 2] = p.z;
+			}
+
+			visibleTilePositions.set(uuid, arr);
+			// console.log(`Tile ${uuid} visible → baked ${posAttr.count} points`);
+		} else {
+			// → tile just went out of view
+			if (visibleTilePositions.delete(uuid)) {
+				// console.log(`Tile ${uuid} hidden → removed`);
+			}
+		}
+
+		// console.log(`→ tracking ${visibleTilePositions.size} tile(s)`);
+
+		// lazy-create your InstancedMesh once
+		if (!voxelMesh && visibleTilePositions.size > 0) {
+			const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+			const boxMat = new THREE.MeshBasicMaterial({
+				color: 0xffffff,
+				wireframe: true,
+				depthTest: true,
+			});
+			voxelMesh = new THREE.InstancedMesh(boxGeo, boxMat, MAX_VOXELS);
+			voxelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+			voxelMesh.frustumCulled = false;
+			// voxelMesh.geometry.computeBoundingSphere();
+			// voxelMesh.geometry.boundingSphere.radius = maxDistFar * 2;
+			scene.add(voxelMesh);
+		}
+
+		// hide the raw points so only voxels remain
+		// pts.visible = false;
+
+		if (voxelMesh) {
+			// update camera pos once
+
 			projScreenMatrix.multiplyMatrices(
 				transition.camera.projectionMatrix,
 				transition.camera.matrixWorldInverse
 			);
 			frustum.setFromProjectionMatrix(projScreenMatrix);
+			camPos.copy(transition.camera.position);
 
-			if (voxelMesh && allVoxelPositions.length) {
-				const camPos = transition.camera.position;
-				let visibleCount = 0;
-				const tmpMat = new Matrix4();
+			let count = 0;
+			const maxNearSq = maxDistNear * maxDistNear;
+			const maxFarSq = maxDistFar * maxDistFar;
 
-				for (let i = 0; i < allVoxelPositions.length; i++) {
-					const p = allVoxelPositions[i];
+			outer: for (const arr of visibleTilePositions.values()) {
+				for (let i = 0; i < arr.length; i += 3) {
+					const x = arr[i],
+						y = arr[i + 1],
+						z = arr[i + 2];
 
-					// 1) Distance cull
-					const dist = camPos.distanceTo(p);
-					if (dist > maxDistFar) continue;
+					// 1) simple distance‐sphere cull
+					const dx = x - camPos.x;
+					const dy = y - camPos.y;
+					const dz = z - camPos.z;
+					const d2 = dx * dx + dy * dy + dz * dz;
+					if (d2 > maxFarSq || d2 < 0) continue;
 
-					// 2) View‐frustum cull
-					if (!frustum.containsPoint(p)) continue;
+					tmpV.set(x, y, z);
+					if (!frustum.containsPoint(tmpV)) continue;
+					// 2) optional near‐hole: skip too close if you want
+					// if (d2 < 0) continue;
 
-					// 3) LOD sampling:
-					//    inside maxDistNear => use every point
-					//    beyond, skip more and more
+					// // 3) LOD skip (same as before)
+					const d = Math.sqrt(d2);
 					let skip = 1;
-					if (dist > maxDistNear) {
-						skip = Math.floor((dist - maxDistNear) / lodFalloff) + 1;
+					if (d > maxDistNear) {
+						skip = Math.floor((d - maxDistNear) / lodFalloff) + 1;
 					}
-					if (i % skip !== 0) continue;
+					if ((i / 3) % skip !== 0) continue;
 
-					// 4) stamp into instanced mesh
-					tmpMat.identity().setPosition(p);
-					voxelMesh.setMatrixAt(visibleCount++, tmpMat);
+					// 4) stamp
+					tmpMat.identity().setPosition(x, y, z);
+					voxelMesh.setMatrixAt(count++, tmpMat);
+
+					if (count >= MAX_VOXELS) break outer;
 				}
-
-				voxelMesh.count = visibleCount;
-				voxelMesh.instanceMatrix.needsUpdate = true;
 			}
+
+			voxelMesh.count = count;
+			voxelMesh.instanceMatrix.needsUpdate = true;
 		}
 	});
 
@@ -687,6 +735,7 @@ function animate() {
 	controls.update();
 	transition.update();
 	const camera = transition.camera;
+
 	tiles.setResolutionFromRenderer(camera, renderer);
 	tiles.setCamera(camera);
 	tiles2.setResolutionFromRenderer(camera, renderer);
