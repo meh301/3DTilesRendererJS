@@ -67,3 +67,4 @@ example/local-data
 example/dev-bundle
 
 pnpm-lock.yaml
+*.gz

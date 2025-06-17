@@ -29,6 +29,7 @@ import {
 	Box3,
 	Mesh,
 	Matrix4,
+	Frustum,
 } from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
@@ -37,17 +38,26 @@ import { TopoLinesPlugin } from "./src/plugins/topolines/TopoLinesPlugin.js";
 import * as THREE from "three";
 import { Space } from "@spatial-id/javascript-sdk";
 import projector from "ecef-projector";
-// import proj4 from "proj4";
 
 let controls, scene, renderer, tiles, tiles2, tiles3, tiles4, transition;
 let statsContainer, stats;
 let boxRegion;
 let boundingtilesloaded = false;
+let pointcloudtilesloaded = false;
 let iref, irefRegion, osakaexpo;
 let helper;
 let fov;
 let sensorGroup;
+let voxelMesh = null;
+let allVoxelPositions = [];
+const voxelSize = 1;
 const clippingPlanes = [];
+
+const maxDistNear = 50; // full density inside 3 km
+const maxDistFar = 200; // absolute far‐clip at 10 km
+const lodFalloff = 100; // how quickly we drop density
+let frustum = new Frustum();
+let projScreenMatrix = new Matrix4();
 
 const Z_CONST = 28;
 const R_EQUATOR = 6_378_137; // WGS84 equatorial radius [m]
@@ -104,70 +114,6 @@ function pickByZoom(spatialIds, zoom) {
 	// otherwise fall back to the highest‐zoom entry
 	return spatialIds.reduce((a, b) => (a.zoom > b.zoom ? a : b));
 }
-
-// /**
-//  * Build a properly oriented ECEF box from two SpatialID strings.
-//  *
-//  * @param {string} minId  Z/F/X/Y of the “lower‐southwest‐bottom” corner
-//  * @param {string} maxId  Z/F/X/Y of the “upper‐northeast‐top” corner
-//  * @param {number} color  THREE.Color or hex
-//  * @returns {THREE.Mesh}
-//  */
-// function makeBoxFromSpatialIDs(minId, maxId, color) {
-// 	// 1) parse + reorder if necessary
-// 	minId = reorderSpatialId(minId);
-// 	maxId = reorderSpatialId(maxId);
-
-// 	// 2) build Space objects
-// 	const smin = new Space(minId);
-// 	const smax = new Space(maxId);
-
-// 	// 3) grab their 8 geodetic corners
-// 	const verts = smin.vertices3d().concat(smax.vertices3d());
-
-// 	// 4) project to ECEF Vector3
-// 	const pts = verts.map((v) => {
-// 		const [lng, lat, alt] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
-// 		return new THREE.Vector3(
-// 			...projector.project(lat, lng, alt + params.AltitudeOffset)
-// 		);
-// 	});
-
-// 	// 5) find the true min/max in ECEF
-// 	const minE = pts.reduce(
-// 		(m, p) => m.min(p),
-// 		new THREE.Vector3(Infinity, Infinity, Infinity)
-// 	);
-// 	const maxE = pts.reduce(
-// 		(m, p) => m.max(p),
-// 		new THREE.Vector3(-Infinity, -Infinity, -Infinity)
-// 	);
-
-// 	// 6) size + center
-// 	const size = new THREE.Vector3().subVectors(maxE, minE);
-// 	const center = new THREE.Vector3().addVectors(maxE, minE).multiplyScalar(0.5);
-
-// 	// 7) build the box mesh (axis‐aligned in ECEF)
-// 	const geo = new THREE.BoxGeometry(size.x, size.y, size.z);
-// 	const mat = new THREE.MeshBasicMaterial({
-// 		color,
-// 		wireframe: false,
-// 		depthTest: true,
-// 	});
-// 	const mesh = new THREE.Mesh(geo, mat);
-// 	mesh.position.copy(center);
-
-// 	const axesHelper = new THREE.AxesHelper(5000);
-// 	axesHelper.position.copy(center);
-// 	scene.add(axesHelper);
-
-// 	return mesh;
-// }
-
-// // geodetic WGS84
-// proj4.defs("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
-// // geocentric (ECEF) WGS84
-// proj4.defs("EPSG:4978", "+proj=geocent +datum=WGS84 +units=m +no_defs");
 
 function handleOBBClippingChange(box3, matrixWorld, scene) {
 	const normals = [
@@ -257,29 +203,6 @@ function reinstantiateTiles() {
 	tiles4.registerPlugin(new TileCompressionPlugin());
 	tiles4.registerPlugin(new UpdateOnChangePlugin());
 	tiles4.registerPlugin(new UnloadTilesPlugin());
-	// tiles4.registerPlugin(
-	// 	new DebugTilesPlugin({
-	// 		enabled: true,
-	// 		colorMode: 7,
-	// 		displayBoxBounds: true,
-	// 		displayRegionBounds: true,
-	// 	})
-	// );
-	// tiles4.registerPlugin(new TilesFadePlugin());
-	// tiles4.registerPlugin(
-	// 	new GLTFExtensionsPlugin({
-	// 		dracoLoader: new DRACOLoader().setDecoderPath(
-	// 			"https://unpkg.com/three@0.153.0/examples/jsm/libs/draco/gltf/"
-	// 		),
-	// 		rtc: true,
-	// 		metadata: true,
-	// 		ktxLoader: new KTX2Loader()
-	// 			.setTranscoderPath(
-	// 				"https://unpkg.com/three@0.177.0/examples/jsm/libs/basis/"
-	// 			)
-	// 			.detectSupport(renderer),
-	// 	})
-	// );
 
 	scene.add(tiles4.group);
 
@@ -389,25 +312,6 @@ function reinstantiateTiles() {
 	scene.add(tiles.group);
 
 	tiles.addEventListener("load-model", (e) => {
-		// if (boundingtilesloaded) {
-		// 	boundingtilesloaded = false;
-		// 	let plugin = tiles.getPluginByName("LOAD_REGION_PLUGIN");
-		// 	plugin.addRegion(irefRegion);
-		// 	let boundingboxmatrix = new Matrix4();
-		// 	if (tiles3.getOrientedBoundingBox(iref, boundingboxmatrix)) {
-		// 			irefRegion.errorTarget = params.errorTarget;
-		// 			irefRegion.obb.box.copy(iref);
-		// 			irefRegion.obb.transform.copy(boundingboxmatrix);
-		// 			irefRegion.obb.update();
-
-		// 			scene.remove(tiles3.group);
-		// 			tiles3.dispose();
-		// 			tiles3 = null;
-		// 	} else {
-		// 		console.log("failed to filter tile region");
-		// 	}
-		// }
-
 		if (boundingtilesloaded) {
 			tiles.group.traverse((obj) => {
 				if (obj.isMesh) {
@@ -418,41 +322,6 @@ function reinstantiateTiles() {
 			});
 		}
 	});
-
-	// tiles.addEventListener("load-model", (e) => {
-	// 	if (!boundingtilesloaded) return;
-	// 	boundingtilesloaded = false;
-
-	// 	const boxMat = new THREE.Matrix4();
-	// 	if (!tiles3.getOrientedBoundingBox(iref, boxMat)) return;
-
-	// 	// 2) get a THREE.Box3 from your iref
-	// 	const box3 = new THREE.Box3().copy(iref);
-
-	// 	// 3) build exactly four vertical planes
-	// 	const clippingPlanes = buildVerticalOBBPlanes(box3, boxMat);
-
-	// 	// 4) (optional) debug helpers at roughly your box size
-	// 	const diag = box3.getSize(new THREE.Vector3()).length();
-	// 	const helperGroup = new THREE.Group();
-	// 	clippingPlanes.forEach((pl) => {
-	// 		helperGroup.add(new THREE.PlaneHelper(pl, diag, 0xff0000));
-	// 	});
-	// 	scene.add(helperGroup);
-
-	// 	// 5) apply to each mesh in the loaded tile
-	// 	e.scene.traverse((obj) => {
-	// 		if (obj.isMesh) {
-	// 			obj.material.clippingPlanes = clippingPlanes;
-	// 			obj.material.clipIntersection = false; // keeps outside of any vertical wall → cuts a shaft
-	// 			obj.material.needsUpdate = true;
-	// 		}
-	// 	});
-
-	// 	scene.remove(tiles3.group);
-	// 	tiles3.dispose();
-	// 	tiles3 = null;
-	// });
 
 	tiles2 = new TilesRenderer();
 	tiles2.registerPlugin(
@@ -467,12 +336,93 @@ function reinstantiateTiles() {
 	tiles2.registerPlugin(new UnloadTilesPlugin());
 	tiles2.registerPlugin(new TilesFadePlugin());
 	// tiles2.registerPlugin(new LoadRegionPlugin());
+	// tiles2.addEventListener("load-model", (e) => {
+	// 	// e.scene.material.size = 2;
+	// 	// e.scene.material.sizeAttenuation = false;
+	// 	// e.scene.material.needsUpdate = true;
+	// });
+	scene.add(tiles2.group);
+
 	tiles2.addEventListener("load-model", (e) => {
-		e.scene.material.size = 2;
-		e.scene.material.sizeAttenuation = false;
-		e.scene.material.needsUpdate = true;
+		// 1) extract every point’s world position
+		allVoxelPositions.length = 0;
+		tiles2.group.traverse((obj) => {
+			// we know tiles2 is a THREE.Points
+			if (obj.isPoints && obj.geometry.attributes.position) {
+				const posAttr = obj.geometry.attributes.position;
+				const matWorld = obj.matrixWorld;
+				const p = new THREE.Vector3();
+				for (let i = 0; i < posAttr.count; i++) {
+					p.fromBufferAttribute(posAttr, i).applyMatrix4(matWorld);
+					allVoxelPositions.push(p.clone());
+				}
+			}
+		});
+
+		// 2) create the InstancedMesh once
+		const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+		const boxMat = new THREE.MeshBasicMaterial({
+			color: 0xffffff,
+			wireframe: true,
+			depthTest: false,
+		});
+
+		voxelMesh = new THREE.InstancedMesh(
+			boxGeo,
+			boxMat,
+			allVoxelPositions.length
+		);
+		voxelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+		scene.add(voxelMesh);
+
+		// hide the original point cloud if you like:
+		tiles2.group.visible = false;
+		pointcloudtilesloaded = true;
 	});
-	// scene.add(tiles2.group);
+
+	tiles2.addEventListener("needs-update", (e) => {
+		if (pointcloudtilesloaded && tiles2) {
+			console.log("actuates!");
+			projScreenMatrix.multiplyMatrices(
+				transition.camera.projectionMatrix,
+				transition.camera.matrixWorldInverse
+			);
+			frustum.setFromProjectionMatrix(projScreenMatrix);
+
+			if (voxelMesh && allVoxelPositions.length) {
+				const camPos = transition.camera.position;
+				let visibleCount = 0;
+				const tmpMat = new Matrix4();
+
+				for (let i = 0; i < allVoxelPositions.length; i++) {
+					const p = allVoxelPositions[i];
+
+					// 1) Distance cull
+					const dist = camPos.distanceTo(p);
+					if (dist > maxDistFar) continue;
+
+					// 2) View‐frustum cull
+					if (!frustum.containsPoint(p)) continue;
+
+					// 3) LOD sampling:
+					//    inside maxDistNear => use every point
+					//    beyond, skip more and more
+					let skip = 1;
+					if (dist > maxDistNear) {
+						skip = Math.floor((dist - maxDistNear) / lodFalloff) + 1;
+					}
+					if (i % skip !== 0) continue;
+
+					// 4) stamp into instanced mesh
+					tmpMat.identity().setPosition(p);
+					voxelMesh.setMatrixAt(visibleCount++, tmpMat);
+				}
+
+				voxelMesh.count = visibleCount;
+				voxelMesh.instanceMatrix.needsUpdate = true;
+			}
+		}
+	});
 
 	tiles.setResolutionFromRenderer(transition.camera, renderer);
 	tiles.setCamera(transition.camera);
@@ -672,29 +622,6 @@ function init() {
 			axesHelper.applyMatrix4(mBasis);
 			axesHelper.position.copy(center);
 			sensorGroup.add(axesHelper);
-
-			// 11) for each voxel in that range, spawn one oriented cube
-			// for (let f = f0; f <= f1; f++) {
-			// 	for (let x = x0; x <= x1; x++) {
-			// 		for (let y = y0; y <= y1; y++) {
-			// 			const sid = `/${z}/${f}/${x}/${y}`;
-			// 			const space = new Space(sid);
-			// 			const { lat, lng, alt } = space.center;
-			// 			const center = new THREE.Vector3(
-			// 				...projector.project(lat, lng, alt + altOffset)
-			// 			);
-
-			// 			const box = new THREE.Mesh(geom, mat);
-			// 			box.applyMatrix4(mBasis);
-			// 			box.position.copy(center);
-			// 			sensorGroup.add(box);
-			// 			const axesHelper = new THREE.AxesHelper(5000);
-			// 			axesHelper.applyMatrix4(mBasis);
-			// 			axesHelper.position.copy(center);
-			// 			sensorGroup.add(axesHelper);
-			// 		}
-			// 	}
-			// }
 		}
 	};
 
