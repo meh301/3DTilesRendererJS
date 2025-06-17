@@ -124,7 +124,15 @@ function reorderSpatialId(zxyf) {
 	const [z, x, y, f] = zxyf.split("/");
 	return `${z}/${f}/${x}/${y}`;
 }
-
+function parseSpatialId(str) {
+	const parts = str.replace(/^\/+/, "").split("/");
+	return {
+		zoom: +parts[0],
+		f: +parts[1],
+		x: +parts[2],
+		y: +parts[3],
+	};
+}
 function pickByZoom(spatialIds, zoom) {
 	// try exact match first
 	const exact = spatialIds.find((si) => si.zoom === zoom);
@@ -545,134 +553,94 @@ function init() {
 	const socket = new WebSocket("wss://nodered.tlab.cloud/osaka");
 
 	socket.onmessage = async (evt) => {
-		// 1) clear old boxes…
 		for (let i = sensorGroup.children.length - 1; i >= 0; i--) {
 			const c = sensorGroup.children[i];
-			c.geometry.dispose();
-			c.material.dispose();
+			c.geometry?.dispose();
+			c.material?.dispose();
 			sensorGroup.remove(c);
 		}
-
-		// 2) parse JSON
 		let objs;
 		try {
 			objs = JSON.parse(evt.data);
-		} catch (err) {
-			console.error("Bad JSON:", err);
+		} catch {
 			return;
 		}
-
-		const altOffset = params.AltitudeOffset || 0;
-
-		// simple parser: "/z/f/x/y" → { z,f,x,y }
-		function parseSpatialId(str) {
-			const parts = str.replace(/^\/+/, "").split("/");
-			return {
-				zoom: +parts[0],
-				f: +parts[1],
-				x: +parts[2],
-				y: +parts[3],
-			};
-		}
-
+		const alt = params.AltitudeOffset;
 		for (const obj of objs) {
-			// unmix any mangled IDs
-			for (const si of obj.spatial_ids) {
+			obj.spatial_ids.forEach((si) => {
 				si.min_corner = reorderSpatialId(si.min_corner);
 				si.max_corner = reorderSpatialId(si.max_corner);
-			}
-
-			// pick the requested zoom
+			});
 			const top = pickByZoom(obj.spatial_ids, params.ZoomLevel);
-
-			// build Spaces
 			const spaceMin = new Space(top.min_corner);
 			const spaceMax = new Space(top.max_corner);
-
-			// 5) get geodetic corners
 			const vertsMin = spaceMin.vertices3d();
 			const vertsMax = spaceMax.vertices3d();
-
-			// 6) project → ECEF
 			const corners = vertsMin.concat(vertsMax).map((v) => {
-				let [lng, lat, alt] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
-				return new THREE.Vector3(
-					...projector.project(lat, lng, alt + altOffset)
-				);
+				const [lng, lat, alt0] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
+				return new Vector3(...projector.project(lat, lng, alt0 + alt));
 			});
-
-			// edges from the *first* corner (NW bottom):
-			const eastEdge = new THREE.Vector3().subVectors(corners[3], corners[0]);
-			const southEdge = new THREE.Vector3().subVectors(corners[1], corners[0]);
-			const upEdge = new THREE.Vector3().subVectors(corners[4], corners[0]);
-
-			// local → world rotation
-			const mBasis = new THREE.Matrix4().makeBasis(
+			const eastEdge = new Vector3().subVectors(corners[3], corners[0]);
+			const southEdge = new Vector3().subVectors(corners[1], corners[0]);
+			const upEdge = new Vector3().subVectors(corners[4], corners[0]);
+			const mBasis = new Matrix4().makeBasis(
 				eastEdge.clone().normalize(),
 				southEdge.clone().normalize(),
 				upEdge.clone().normalize()
 			);
-
-			// parse out integer ranges from your top.min/max
 			const minT = parseSpatialId(top.min_corner);
 			const maxT = parseSpatialId(top.max_corner);
-
-			const z = minT.zoom;
-			const f0 = minT.f,
-				f1 = maxT.f;
-			const x0 = minT.x,
-				x1 = maxT.x;
-			const y0 = minT.y,
-				y1 = maxT.y;
-
-			const countX = x1 - x0 + 1;
-			const countY = y1 - y0 + 1;
-			const countZ = f1 - f0 + 1;
-
-			// lengths along each axis
-			// const size = new THREE.Vector3(
-			// 	eastEdge.length(),
-			// 	southEdge.length(),
-			// 	upEdge.length()
-			// );
-			const size = new THREE.Vector3(
+			const countX = maxT.x - minT.x + 1;
+			const countY = maxT.y - minT.y + 1;
+			const countZ = maxT.f - minT.f + 1;
+			const size = new Vector3(
 				eastEdge.length() * countX,
 				southEdge.length() * countY,
 				upEdge.length() * countZ
 			);
-
-			// build a single BoxGeometry + Material
 			const geom = new THREE.BoxGeometry(size.x, size.y, size.z);
 			const mat = new THREE.MeshBasicMaterial({
 				color: obj.name === "person" ? 0xff0000 : 0x0000ff,
 				wireframe: false,
 				depthTest: true,
 			});
-
-			const origin = corners[0];
-			const center = origin
+			const center = corners[0]
 				.clone()
 				.add(eastEdge.clone().multiplyScalar(countX / 2))
 				.add(southEdge.clone().multiplyScalar(countY / 2))
 				.add(upEdge.clone().multiplyScalar(countZ / 2));
-
 			const mesh = new THREE.Mesh(geom, mat);
-
-			// apply the exact same basis you had (unit‐voxel orientation)
 			mesh.applyMatrix4(mBasis);
-
-			// place it at the calculated center
 			mesh.position.copy(center);
-
 			sensorGroup.add(mesh);
+			const axes = new THREE.AxesHelper(5000);
+			axes.applyMatrix4(mBasis);
+			axes.position.copy(center);
+			sensorGroup.add(axes);
 
-			const axesHelper = new THREE.AxesHelper(5000);
-			axesHelper.applyMatrix4(mBasis);
-			axesHelper.position.copy(center);
-			sensorGroup.add(axesHelper);
+			const canvas = document.createElement("canvas");
+			canvas.width = 720;
+			canvas.height = 256;
+			const ctx = canvas.getContext("2d");
+			ctx.font = "48px Arial";
+			ctx.textAlign = "center";
+			ctx.fillStyle = "white";
+			ctx.fillText("Min: " + top.min_corner, canvas.width / 2, 60);
+			ctx.fillText("Max: " + top.max_corner, canvas.width / 2, 140);
+			ctx.fillText(`${obj.name} ${obj.confidence}`, canvas.width / 2, 220);
+			const tex = new THREE.CanvasTexture(canvas);
+			tex.needsUpdate = true;
+			const spriteMat = new THREE.SpriteMaterial({
+				map: tex,
+				depthTest: false,
+			});
+			const sprite = new THREE.Sprite(spriteMat);
+			const horiz = Math.max(size.x, size.y);
+			sprite.scale.set(horiz, horiz * (canvas.height / canvas.width), 1);
+			sprite.position.copy(center);
+			sensorGroup.add(sprite);
 		}
 	};
-
 	reinstantiateTiles();
 
 	window.addEventListener("resize", onWindowResize);
