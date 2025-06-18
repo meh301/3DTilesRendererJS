@@ -69,3 +69,5 @@ example/dev-bundle
 pnpm-lock.yaml
 *.gz
 example/datasets/tokyo.zip
+/example/datasets
+/example/bundle

@@ -39,17 +39,28 @@ import * as THREE from "three";
 import { Space } from "@spatial-id/javascript-sdk";
 import projector from "ecef-projector";
 
-let controls, scene, renderer, tiles, tiles2, tiles3, tiles4, transition;
+let controls,
+	scene,
+	renderer,
+	tiles,
+	tiles2,
+	tiles3,
+	tiles4,
+	tiles5,
+	tiles6,
+	transition;
 let statsContainer, stats;
 let boxRegion;
 let boundingtilesloaded = false;
 let pointcloudtilesloaded = false;
 let iref, irefRegion, osakaexpo;
 let helper;
-let fov;
+let axes;
 let sensorGroup;
-const voxelSize = 1;
+let voxelGroup;
+
 const clippingPlanes = [];
+const res = {};
 
 // Max number of voxels you ever want to draw in one frame
 const MAX_VOXELS = 500000;
@@ -58,9 +69,6 @@ const MAX_VOXELS = 500000;
 const maxDistNear = 100; // inside here, draw every point
 const maxDistFar = 200; // beyond here, never draw
 const lodFalloff = 150; // how quickly to skip as you go out
-
-// squared distance for faster checks
-const maxFarSq = maxDistFar * maxDistFar;
 
 // one shared tmp Vector3 and Matrix4 to avoid allocations:
 const tmpV = new THREE.Vector3();
@@ -71,12 +79,14 @@ const projScreenMatrix = new THREE.Matrix4();
 const frustum = new THREE.Frustum();
 
 // camera pos helper
-const camPos = new THREE.Vector3();
+let camPos = new THREE.Vector3();
 
 // map from tile.id → Float32Array of world‐space [x,y,z, x,y,z,…]
 const visibleTilePositions = new Map();
-
 let voxelMesh = null;
+
+const visibleTilePositions2 = new Map();
+let voxelMesh2 = null;
 
 const Z_CONST = 28;
 const R_EQUATOR = 6_378_137; // WGS84 equatorial radius [m]
@@ -92,8 +102,10 @@ const params = {
 	displayTopoLines: false,
 	errorTarget: 20,
 	fov: 60,
-	AltitudeOffset: 300,
-	ZoomLevel: 25,
+	AltitudeOffset: 50,
+	ZoomLevel: 28,
+	DrawStaticSpatialID: true,
+	DrawHelpers: false,
 	reload: reinstantiateTiles,
 };
 
@@ -226,6 +238,18 @@ function reinstantiateTiles() {
 		tiles4 = null;
 	}
 
+	if (tiles5) {
+		scene.remove(tiles5.group);
+		tiles5.dispose();
+		tiles5 = null;
+	}
+
+	if (tiles6) {
+		scene.remove(tiles6.group);
+		tiles6.dispose();
+		tiles6 = null;
+	}
+
 	tiles4 = new TilesRenderer("./datasets/I-REF_2018/tileset.json");
 	tiles4.registerPlugin(new TileCompressionPlugin());
 	tiles4.registerPlugin(new UpdateOnChangePlugin());
@@ -350,24 +374,19 @@ function reinstantiateTiles() {
 		}
 	});
 
-	tiles2 = new TilesRenderer();
-	tiles2.registerPlugin(
-		new CesiumIonAuthPlugin({
-			apiToken: import.meta.env.VITE_ION_KEY,
-			assetId: "3435658",
-			autoRefreshToken: true,
-		})
-	);
+	tiles2 = new TilesRenderer("./datasets/bunkyo/tileset.json");
+	// tiles2.registerPlugin(
+	// 	new CesiumIonAuthPlugin({
+	// 		apiToken: import.meta.env.VITE_ION_KEY,
+	// 		assetId: "3435658",
+	// 		autoRefreshToken: true,
+	// 	})
+	// );
 	tiles2.registerPlugin(new TileCompressionPlugin());
 	tiles2.registerPlugin(new UpdateOnChangePlugin());
 	tiles2.registerPlugin(new UnloadTilesPlugin());
 	tiles2.registerPlugin(new TilesFadePlugin());
-	// tiles2.registerPlugin(new LoadRegionPlugin());
-	// tiles2.addEventListener("load-model", (e) => {
-	// 	// e.scene.material.size = 2;
-	// 	// e.scene.material.sizeAttenuation = false;
-	// 	// e.scene.material.needsUpdate = true;
-	// });
+
 	scene.add(tiles2.group);
 
 	tiles2.addEventListener("tile-visibility-change", (e) => {
@@ -410,74 +429,147 @@ function reinstantiateTiles() {
 
 		// lazy-create your InstancedMesh once
 		if (!voxelMesh && visibleTilePositions.size > 0) {
-			const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+			const space = new Space({ lat: 35.715848, lng: 139.761099, alt: 20 });
+			const verts = space.vertices3d();
+
+			const corners = verts.map((v) => {
+				const [lng, lat, alt] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
+				return new Vector3(...projector.project(lat, lng, alt));
+			});
+			const voxelsizehorizontal = corners[1].distanceTo(corners[0]);
+			// console.log(voxelsizehorizontal);
+			const voxelsizevertical = corners[4].distanceTo(corners[0]);
+
+			const eastEdge = new Vector3().subVectors(corners[3], corners[0]);
+			const southEdge = new Vector3().subVectors(corners[1], corners[0]);
+			const upEdge = new Vector3().subVectors(corners[4], corners[0]);
+			const mBasis = new Matrix4().makeBasis(
+				eastEdge.clone().normalize(),
+				southEdge.clone().normalize(),
+				upEdge.clone().normalize()
+			);
+			// console.log(mBasis);
+			const rot = new THREE.Matrix4().extractRotation(mBasis);
+
+			const boxGeo = new THREE.BoxGeometry(
+				voxelsizehorizontal,
+				voxelsizehorizontal,
+				voxelsizevertical
+			);
+
+			boxGeo.applyMatrix4(rot);
 			const boxMat = new THREE.MeshBasicMaterial({
 				color: 0xffffff,
+				transparent: true,
 				wireframe: true,
 				depthTest: true,
+				opacity: 0.3,
 			});
 			voxelMesh = new THREE.InstancedMesh(boxGeo, boxMat, MAX_VOXELS);
 			voxelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 			voxelMesh.frustumCulled = false;
-			// voxelMesh.geometry.computeBoundingSphere();
-			// voxelMesh.geometry.boundingSphere.radius = maxDistFar * 2;
-			scene.add(voxelMesh);
+			voxelGroup.add(voxelMesh);
+			// scene.add(voxelMesh);
+		}
+	});
+
+	tiles5 = new TilesRenderer("./datasets/osaka/tileset.json");
+	// tiles5.registerPlugin(
+	// 	new CesiumIonAuthPlugin({
+	// 		apiToken: import.meta.env.VITE_ION_KEY,
+	// 		assetId: "3471063",
+	// 		autoRefreshToken: true,
+	// 	})
+	// );
+	tiles5.registerPlugin(new TileCompressionPlugin());
+	tiles5.registerPlugin(new UpdateOnChangePlugin());
+	tiles5.registerPlugin(new UnloadTilesPlugin());
+	tiles5.registerPlugin(new TilesFadePlugin());
+	scene.add(tiles5.group);
+
+	tiles5.addEventListener("tile-visibility-change", (e) => {
+		tiles5.group.visible = false;
+		const pts = e.scene; // this is your THREE.Points
+		// console.log(pts);
+		if (!pts.isPoints) return; // bail if it somehow isn’t
+
+		let uuid;
+		let posAttr;
+		let worldMat;
+
+		if (e.visible) {
+			uuid = pts.uuid; // unique key per tile
+			posAttr = pts.geometry.attributes.position;
+			worldMat = pts.matrixWorld;
+
+			// → tile just became visible
+			if (visibleTilePositions2.has(uuid)) return; // already baked
+
+			const arr = new Float32Array(posAttr.count * 3);
+			const p = new THREE.Vector3();
+			for (let i = 0; i < posAttr.count; i++) {
+				p.fromBufferAttribute(posAttr, i).applyMatrix4(worldMat);
+				arr[3 * i] = p.x;
+				arr[3 * i + 1] = p.y;
+				arr[3 * i + 2] = p.z;
+			}
+
+			visibleTilePositions2.set(uuid, arr);
+			// console.log(`Tile ${uuid} visible → baked ${posAttr.count} points`);
+		} else {
+			// → tile just went out of view
+			if (visibleTilePositions2.delete(uuid)) {
+				// console.log(`Tile ${uuid} hidden → removed`);
+			}
+		}
+
+		// lazy-create your InstancedMesh once
+		if (!voxelMesh2 && visibleTilePositions2.size > 0) {
+			const space = new Space({ lat: 34.649007, lng: 135.383477, alt: 20 });
+			const verts = space.vertices3d();
+
+			const corners = verts.map((v) => {
+				const [lng, lat, alt] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
+				return new Vector3(...projector.project(lat, lng, alt));
+			});
+			const voxelsizehorizontal = corners[1].distanceTo(corners[0]);
+			// console.log(voxelsizehorizontal);
+			const voxelsizevertical = corners[4].distanceTo(corners[0]);
+
+			const eastEdge = new Vector3().subVectors(corners[3], corners[0]);
+			const southEdge = new Vector3().subVectors(corners[1], corners[0]);
+			const upEdge = new Vector3().subVectors(corners[4], corners[0]);
+			const mBasis = new Matrix4().makeBasis(
+				eastEdge.clone().normalize(),
+				southEdge.clone().normalize(),
+				upEdge.clone().normalize()
+			);
+			// console.log(mBasis);
+			const rot = new THREE.Matrix4().extractRotation(mBasis);
+
+			const boxGeo = new THREE.BoxGeometry(
+				voxelsizehorizontal,
+				voxelsizehorizontal,
+				voxelsizevertical
+			);
+
+			boxGeo.applyMatrix4(rot);
+			const boxMat = new THREE.MeshBasicMaterial({
+				color: 0xffffff,
+				transparent: true,
+				wireframe: true,
+				depthTest: true,
+				opacity: 0.3,
+			});
+			voxelMesh2 = new THREE.InstancedMesh(boxGeo, boxMat, MAX_VOXELS);
+			voxelMesh2.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+			voxelMesh2.frustumCulled = false;
+			voxelGroup.add(voxelMesh2);
+			// scene.add(voxelMesh);
 		}
 
 		// hide the raw points so only voxels remain
 		// pts.visible = false;
-
-		if (voxelMesh) {
-			// update camera pos once
-
-			projScreenMatrix.multiplyMatrices(
-				transition.camera.projectionMatrix,
-				transition.camera.matrixWorldInverse
-			);
-			frustum.setFromProjectionMatrix(projScreenMatrix);
-			camPos.copy(transition.camera.position);
-
-			let count = 0;
-			const maxNearSq = maxDistNear * maxDistNear;
-			const maxFarSq = maxDistFar * maxDistFar;
-
-			outer: for (const arr of visibleTilePositions.values()) {
-				for (let i = 0; i < arr.length; i += 3) {
-					const x = arr[i],
-						y = arr[i + 1],
-						z = arr[i + 2];
-
-					// 1) simple distance‐sphere cull
-					const dx = x - camPos.x;
-					const dy = y - camPos.y;
-					const dz = z - camPos.z;
-					const d2 = dx * dx + dy * dy + dz * dz;
-					if (d2 > maxFarSq || d2 < 0) continue;
-
-					tmpV.set(x, y, z);
-					if (!frustum.containsPoint(tmpV)) continue;
-					// 2) optional near‐hole: skip too close if you want
-					// if (d2 < 0) continue;
-
-					// // 3) LOD skip (same as before)
-					const d = Math.sqrt(d2);
-					let skip = 1;
-					if (d > maxDistNear) {
-						skip = Math.floor((d - maxDistNear) / lodFalloff) + 1;
-					}
-					if ((i / 3) % skip !== 0) continue;
-
-					// 4) stamp
-					tmpMat.identity().setPosition(x, y, z);
-					voxelMesh.setMatrixAt(count++, tmpMat);
-
-					if (count >= MAX_VOXELS) break outer;
-				}
-			}
-
-			voxelMesh.count = count;
-			voxelMesh.instanceMatrix.needsUpdate = true;
-		}
 	});
 
 	tiles.setResolutionFromRenderer(transition.camera, renderer);
@@ -492,6 +584,9 @@ function reinstantiateTiles() {
 
 	tiles4.setResolutionFromRenderer(transition.camera, renderer);
 	tiles4.setCamera(transition.camera);
+
+	tiles5.setResolutionFromRenderer(transition.camera, renderer);
+	tiles5.setCamera(transition.camera);
 
 	// controls.setScene(tiles.group);
 	controls.raycaster.layers.set(0);
@@ -548,6 +643,9 @@ function init() {
 
 	sensorGroup = new THREE.Group();
 	scene.add(sensorGroup);
+
+	voxelGroup = new THREE.Group();
+	scene.add(voxelGroup);
 
 	//websocket handling
 	const socket = new WebSocket("wss://nodered.tlab.cloud/osaka");
@@ -613,10 +711,18 @@ function init() {
 			mesh.applyMatrix4(mBasis);
 			mesh.position.copy(center);
 			sensorGroup.add(mesh);
-			const axes = new THREE.AxesHelper(5000);
+			axes = new THREE.AxesHelper(5000);
 			axes.applyMatrix4(mBasis);
 			axes.position.copy(center);
-			sensorGroup.add(axes);
+			if (params.DrawHelpers) {
+				sensorGroup.add(axes);
+			} else {
+				if (axes) {
+					sensorGroup.remove(axes);
+					axes.dispose();
+					axes = null;
+				}
+			}
 
 			const canvas = document.createElement("canvas");
 			canvas.width = 720;
@@ -635,7 +741,7 @@ function init() {
 				depthTest: false,
 			});
 			const sprite = new THREE.Sprite(spriteMat);
-			const horiz = Math.max(size.x, size.y);
+			const horiz = Math.max(size.x, size.y) * 5;
 			sprite.scale.set(horiz, horiz * (canvas.height / canvas.width), 1);
 			sprite.position.copy(center);
 			sensorGroup.add(sprite);
@@ -669,14 +775,15 @@ function init() {
 
 	const exampleOptions = gui.addFolder("Options");
 	exampleOptions.add(params, "displayTopoLines").listen();
-	exampleOptions.add(params, "enableCacheDisplay");
-	exampleOptions.add(params, "enableRendererStats");
 	exampleOptions.add(params, "errorTarget", 5, 100, 1).onChange(() => {
 		tiles.getPluginByName("UPDATE_ON_CHANGE_PLUGIN").needsUpdate = true;
 	});
-	exampleOptions.add(params, "AltitudeOffset", 0, 1500, 0.1);
+	exampleOptions.add(params, "AltitudeOffset", 0, 100, 0.1);
 	exampleOptions.add(params, "ZoomLevel", 25, 28, 1);
+	exampleOptions.add(params, "DrawStaticSpatialID");
+	exampleOptions.add(params, "DrawHelpers");
 
+	gui.close();
 	statsContainer = document.createElement("div");
 	document.getElementById("info")?.appendChild(statsContainer);
 	stats = new Stats();
@@ -718,6 +825,10 @@ function animate() {
 
 	tiles4.setResolutionFromRenderer(camera, renderer);
 	tiles4.setCamera(camera);
+
+	tiles5.setResolutionFromRenderer(camera, renderer);
+	tiles5.setCamera(camera);
+
 	const plugin = tiles.getPluginByName("TOPO_LINES_PLUGIN");
 	plugin.topoOpacity = params.displayTopoLines ? 0.5 : 0;
 	plugin.cartoOpacity = params.displayTopoLines ? 0.5 : 0;
@@ -730,6 +841,9 @@ function animate() {
 	tiles4.errorTarget = params.errorTarget;
 	tiles4.update();
 
+	tiles5.errorTarget = params.errorTarget;
+	tiles5.update();
+
 	renderer.render(scene, camera);
 	stats.update();
 
@@ -737,13 +851,144 @@ function animate() {
 		const mat = tiles.group.matrixWorld.clone().invert();
 		const vec = camera.position.clone().applyMatrix4(mat);
 
-		const res = {};
 		WGS84_ELLIPSOID.getPositionToCartographic(vec, res);
 
 		const attributions = tiles.getAttributions()[0]?.value || "";
 		document.getElementById("credits").innerText =
-			GeoUtils.toLatLonString(res.lat, res.lon) + "\n" + attributions;
+			GeoUtils.toLatLonString(res.lat, res.lon, true) + "\n" + attributions;
 		// console.log(camera.zoom);
+	}
+
+	// const result = GeoUtils.correctGeoCoordWrap(res.lat, res.lat);
+	// const space = new Space({
+	// 	lat: MathUtils.RAD2DEG * result.lat,
+	// 	lng: MathUtils.RAD2DEG * result.lon,
+	// 	alt: 20,
+	// });
+	// const verts = space.vertices3d();
+
+	// const corners = verts.map((v) => {
+	// 	const [lng, lat, alt] = Array.isArray(v) ? v : [v.lng, v.lat, v.alt];
+	// 	return new Vector3(...projector.project(lat, lng, alt));
+	// });
+	// const voxelsizehorizontal = corners[1].distanceTo(corners[0]);
+	// const voxelsizevertical = corners[4].distanceTo(corners[0]);
+	camPos = transition.camera.position; // reuse your camPos vector
+	if (voxelMesh && params.DrawStaticSpatialID) {
+		// update camera pos once
+		voxelGroup.position.copy(transition.camera.position);
+
+		projScreenMatrix.multiplyMatrices(
+			transition.camera.projectionMatrix,
+			transition.camera.matrixWorldInverse
+		);
+		frustum.setFromProjectionMatrix(projScreenMatrix);
+		camPos.copy(transition.camera.position);
+
+		let count = 0;
+		const maxNearSq = maxDistNear * maxDistNear;
+		const maxFarSq = maxDistFar * maxDistFar;
+
+		outer: for (const arr of visibleTilePositions.values()) {
+			for (let i = 0; i < arr.length; i += 3) {
+				const x = arr[i],
+					y = arr[i + 1],
+					z = arr[i + 2];
+
+				// 1) simple distance‐sphere cull
+				const dx = x - camPos.x;
+				const dy = y - camPos.y;
+				const dz = z - camPos.z;
+				const d2 = dx * dx + dy * dy + dz * dz;
+				if (d2 > maxFarSq || d2 < 0) continue;
+
+				tmpV.set(x, y, z);
+				if (!frustum.containsPoint(tmpV)) continue;
+				// tmpV.set(x - camPos.x, y - camPos.y, z - camPos.z);
+				// if (!frustum.containsPoint(tmpV)) continue;
+
+				// // 3) LOD skip (same as before)
+				const d = Math.sqrt(d2);
+				let skip = 1;
+				if (d > maxDistNear) {
+					skip = Math.floor((d - maxDistNear) / lodFalloff) + 1;
+				}
+				if ((i / 3) % skip !== 0) continue;
+
+				// 4) stamp
+
+				tmpMat.identity().setPosition(dx, dy, dz);
+				voxelMesh.setMatrixAt(count++, tmpMat);
+
+				if (count >= MAX_VOXELS) break outer;
+			}
+		}
+
+		voxelMesh.count = count;
+		voxelMesh.instanceMatrix.needsUpdate = true;
+	} else {
+		if (voxelMesh) {
+			voxelMesh.count = 0;
+			voxelMesh.instanceMatrix.needsUpdate = true;
+		}
+	}
+
+	if (voxelMesh2 && params.DrawStaticSpatialID) {
+		voxelGroup.position.copy(transition.camera.position);
+
+		projScreenMatrix.multiplyMatrices(
+			transition.camera.projectionMatrix,
+			transition.camera.matrixWorldInverse
+		);
+		frustum.setFromProjectionMatrix(projScreenMatrix);
+		camPos.copy(transition.camera.position);
+
+		let count = 0;
+		const maxNearSq = maxDistNear * maxDistNear;
+		const maxFarSq = maxDistFar * maxDistFar;
+
+		outer: for (const arr of visibleTilePositions2.values()) {
+			for (let i = 0; i < arr.length; i += 3) {
+				const x = arr[i],
+					y = arr[i + 1],
+					z = arr[i + 2];
+
+				// 1) simple distance‐sphere cull
+				const dx = x - camPos.x;
+				const dy = y - camPos.y;
+				const dz = z - camPos.z;
+				const d2 = dx * dx + dy * dy + dz * dz;
+				if (d2 > maxFarSq || d2 < 0) continue;
+
+				tmpV.set(x, y, z);
+				if (!frustum.containsPoint(tmpV)) continue;
+				// tmpV.set(x - camPos.x, y - camPos.y, z - camPos.z);
+				// if (!frustum.containsPoint(tmpV)) continue;
+
+				// // 3) LOD skip (same as before)
+				const d = Math.sqrt(d2);
+				let skip = 1;
+				if (d > maxDistNear) {
+					skip = Math.floor((d - maxDistNear) / lodFalloff) + 1;
+				}
+				if ((i / 3) % skip !== 0) continue;
+
+				// 4) stamp
+
+				tmpMat.identity().setPosition(dx, dy, dz);
+				voxelMesh2.setMatrixAt(count++, tmpMat);
+
+				if (count >= MAX_VOXELS) break outer;
+			}
+		}
+		// console.log(voxelMesh2);
+		voxelMesh2.count = count;
+		voxelMesh2.instanceMatrix.needsUpdate = true;
+	} else {
+		if (voxelMesh2) {
+			voxelMesh2.count = 0;
+			voxelMesh2.instanceMatrix.needsUpdate = true;
+		}
 	}
 }
 
