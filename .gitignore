@@ -71,3 +71,4 @@ pnpm-lock.yaml
 example/datasets/tokyo.zip
 /example/datasets
 /example/bundle
+/example/fonts
