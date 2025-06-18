@@ -14,8 +14,7 @@ import {
 	GLTFExtensionsPlugin,
 	BatchedTilesPlugin,
 	CesiumIonAuthPlugin,
-	LoadRegionPlugin,
-	DebugTilesPlugin,
+	GoogleCloudAuthPlugin,
 	OBBRegion,
 } from "3d-tiles-renderer/plugins";
 import {
@@ -106,8 +105,37 @@ const params = {
 	ZoomLevel: 28,
 	DrawStaticSpatialID: true,
 	DrawHelpers: false,
+	City: "Tokyo",
 	reload: reinstantiateTiles,
 };
+
+function setCameraOver(lat, lng, alt) {
+	// project to ECEF
+	const pos = new THREE.Vector3(...projector.project(lat, lng, alt));
+	const ground = new THREE.Vector3(...projector.project(lat, lng, 0));
+	// reposition & re-aim
+	transition.perspectiveCamera.position.copy(pos);
+	transition.perspectiveCamera.lookAt(ground);
+	transition.perspectiveCamera.rotation.z = (-3 * Math.PI) / 4;
+	// sync orthographic & update controls
+	transition.syncCameras();
+	controls.setCamera(transition.camera);
+	controls.update();
+}
+
+function goToTokyo() {
+	setCameraOver(35.715848, 139.761099, 200);
+	params.City = "Tokyo";
+}
+function goToOsaka() {
+	setCameraOver(34.64807162801945, 135.38165144335463, 200);
+	params.City = "Osaka";
+}
+
+window.addEventListener("keyup", (e) => {
+	if (e.key === "T" || e.key === "t") goToTokyo();
+	if (e.key === "O" || e.key === "o") goToOsaka();
+});
 
 function visualizeOBB(scene, color = 0xff0000) {
 	let boundingboxmatrix = new Matrix4();
@@ -611,9 +639,7 @@ function init() {
 		new OrthographicCamera(-1, 1, 1, -1, 1, 160000000)
 	);
 
-	transition.perspectiveCamera.position.set(4800000, 2570000, 14720000);
-	transition.perspectiveCamera.lookAt(0, 0, 0);
-	transition.perspectiveCamera.rotation.z = (-2 * Math.PI) / 3;
+	// -- 1) pick your Tokyo spot:
 
 	// console.log(transition);
 	transition.autoSync = false;
@@ -637,7 +663,7 @@ function init() {
 	controls.minZoom = 0.0000001;
 	controls.maxZoom = 9999.0;
 	// console.log(controls);
-
+	goToTokyo();
 	iref = new THREE.Box3();
 	irefRegion = new OBBRegion();
 
@@ -783,12 +809,20 @@ function init() {
 	exampleOptions.add(params, "DrawStaticSpatialID");
 	exampleOptions.add(params, "DrawHelpers");
 
+	const cityControl = gui
+		.add(params, "City", ["Tokyo", "Osaka"])
+		.name("Jump to")
+		.onChange((v) => {
+			if (v === "Tokyo") goToTokyo();
+			else goToOsaka();
+		});
+
 	gui.close();
-	statsContainer = document.createElement("div");
-	document.getElementById("info")?.appendChild(statsContainer);
-	stats = new Stats();
-	stats.showPanel(0);
-	document.body.appendChild(stats.dom);
+	// statsContainer = document.createElement("div");
+	// document.getElementById("info")?.appendChild(statsContainer);
+	// stats = new Stats();
+	// stats.showPanel(0);
+	// document.body.appendChild(stats.dom);
 }
 
 function onWindowResize() {
@@ -845,7 +879,7 @@ function animate() {
 	tiles5.update();
 
 	renderer.render(scene, camera);
-	stats.update();
+	// stats.update();
 
 	if (tiles) {
 		const mat = tiles.group.matrixWorld.clone().invert();
