@@ -76,8 +76,8 @@ export function toLatLonString(lat, lon, decimalFormat = false) {
 	const result = correctGeoCoordWrap(lat, lon, _geoResults);
 	let latString, lonString;
 	if (decimalFormat) {
-		latString = `${(MathUtils.RAD2DEG * result.lat).toFixed(4)}°`;
-		lonString = `${(MathUtils.RAD2DEG * result.lon).toFixed(4)}°`;
+		latString = `${(MathUtils.RAD2DEG * result.lat).toFixed(9)}°`;
+		lonString = `${(MathUtils.RAD2DEG * result.lon).toFixed(9)}°`;
 	} else {
 		latString = toHoursMinutesSecondsString(
 			MathUtils.RAD2DEG * result.lat,

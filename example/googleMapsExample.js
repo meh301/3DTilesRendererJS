@@ -101,9 +101,9 @@ const params = {
 	displayTopoLines: false,
 	errorTarget: 20,
 	fov: 60,
-	AltitudeOffset: 50,
+	AltitudeOffset: 0,
 	ZoomLevel: 28,
-	DrawStaticSpatialID: true,
+	DrawStaticSpatialID: false,
 	DrawHelpers: false,
 	City: "Tokyo",
 	reload: reinstantiateTiles,
@@ -292,7 +292,7 @@ function reinstantiateTiles() {
 			// pick a random HSL color
 			const hue = Math.random();
 			const sat = 0.25 + Math.random() * 0.25;
-			const lum = 0.375 + Math.random() * 0.25;
+			const lum = 0.15 + Math.random() * 0.25;
 
 			// 1) semi-transparent surface
 			child.material = new THREE.MeshBasicMaterial({
@@ -687,6 +687,7 @@ function init() {
 		try {
 			objs = JSON.parse(evt.data);
 		} catch {
+			console.log("error");
 			return;
 		}
 		const alt = params.AltitudeOffset;
@@ -754,9 +755,9 @@ function init() {
 			canvas.width = 720;
 			canvas.height = 256;
 			const ctx = canvas.getContext("2d");
-			ctx.font = "48px Arial";
+			ctx.font = "24px Arial";
 			ctx.textAlign = "center";
-			ctx.fillStyle = "white";
+			ctx.fillStyle = "black";
 			ctx.fillText("Min: " + top.min_corner, canvas.width / 2, 60);
 			ctx.fillText("Max: " + top.max_corner, canvas.width / 2, 140);
 			ctx.fillText(`${obj.name} ${obj.confidence}`, canvas.width / 2, 220);
