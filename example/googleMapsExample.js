@@ -103,7 +103,7 @@ const params = {
 	fov: 60,
 	AltitudeOffset: 0,
 	ZoomLevel: 28,
-	DrawStaticSpatialID: false,
+	DrawStaticSpatialID: true,
 	DrawHelpers: false,
 	City: "Tokyo",
 	reload: reinstantiateTiles,
