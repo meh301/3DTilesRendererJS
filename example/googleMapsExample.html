@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+		/>
+		<meta charset="utf-8" />
+
+		<title>Google 3D Tiles with SpatialID</title>
+		<link rel="stylesheet" href="./styles.css" />
+	</head>
+	<body>
+		<!-- Header overlay -->
+		<div id="header">
+			<img
+				id="utokyo-logo"
+				src="./logos/utokyo.png"
+				alt="University of Tokyo"
+			/>
+			<div id="lab-info">
+				<div>Graduate School of Information Science and Technology</div>
+				<div>Tsukada Laboratory</div>
+				<div id="team-names">
+					Dr. Alex Orsholits<br />
+					Yanru Chen<br />
+					Sami Brahim Djelloul
+				</div>
+			</div>
+		</div>
+
+		<!-- Existing info band -->
+		<div id="info">
+			<div></div>
+		</div>
+
+		<!-- Loading progress bar -->
+		<div id="loading-bar" style="
+			position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+			width: 300px; max-width: 80vw; z-index: 200;
+			background: rgba(0,0,0,0.7); border-radius: 8px; padding: 8px 12px;
+			font-family: monospace; font-size: 11px; color: #ccc;
+			display: none; backdrop-filter: blur(4px);
+		">
+			<div id="loading-text" style="margin-bottom: 4px;">Loading...</div>
+			<div style="background: #333; border-radius: 4px; height: 6px; overflow: hidden;">
+				<div id="loading-fill" style="background: #00aaff; height: 100%; width: 0%; transition: width 0.3s;"></div>
+			</div>
+		</div>
+
+		<div id="footer">
+			<div id="credits"></div>
+			<div id="logos">
+				<img src="./logos/google.png" />
+				<img src="./logos/cesiumion.png" />
+			</div>
+		</div>
+		<script type="module" src="./googleMapsExample.js"></script>
+	</body>
+</html>
