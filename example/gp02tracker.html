@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+		/>
+		<meta charset="utf-8" />
+		<title>GP-02 Pedestrian Tracker</title>
+		<link rel="stylesheet" href="./styles.css" />
+		<style>
+			/* Status HUD - always visible, responsive */
+			#status-hud {
+				position: fixed;
+				bottom: 40px;
+				left: 8px;
+				background: rgba(0, 0, 0, 0.75);
+				color: #e0e0e0;
+				font-family: 'Courier New', monospace;
+				font-size: 12px;
+				line-height: 1.4;
+				padding: 8px 10px;
+				border-radius: 6px;
+				pointer-events: none;
+				user-select: none;
+				z-index: 100;
+				max-width: 280px;
+				backdrop-filter: blur(4px);
+				-webkit-backdrop-filter: blur(4px);
+			}
+
+			#status-hud .hud-row {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+			}
+
+			#status-hud .hud-label {
+				color: #888;
+				white-space: nowrap;
+			}
+
+			#status-hud .hud-value {
+				text-align: right;
+				font-weight: bold;
+				white-space: nowrap;
+			}
+
+			#status-hud .hud-divider {
+				border-top: 1px solid rgba(255,255,255,0.15);
+				margin: 3px 0;
+			}
+
+			/* Fix type color indicators */
+			.fix-rtk    { color: #00ff00; }
+			.fix-float  { color: #ffff00; }
+			.fix-single { color: #ff3333; }
+			.fix-pdr    { color: #ff00ff; }
+			.fix-none   { color: #666666; }
+
+			.time-fine   { color: #00ff00; }
+			.time-coarse { color: #ffff00; }
+			.time-ntp    { color: #ff9900; }
+			.time-none   { color: #ff3333; }
+
+			.cal-3 { color: #00ff00; }
+			.cal-2 { color: #ffff00; }
+			.cal-1 { color: #ff9900; }
+			.cal-0 { color: #ff3333; }
+
+			.fault-ok   { color: #00ff00; }
+			.fault-warn { color: #ff3333; }
+
+			/* WS connection indicator */
+			#ws-indicator {
+				display: inline-block;
+				width: 8px;
+				height: 8px;
+				border-radius: 50%;
+				margin-right: 4px;
+				vertical-align: middle;
+			}
+			.ws-connected    { background: #00ff00; }
+			.ws-disconnected { background: #ff3333; }
+			.ws-connecting   { background: #ffff00; }
+
+			/* Mobile responsive */
+			@media (max-width: 480px) {
+				#status-hud {
+					font-size: 10px;
+					padding: 6px 8px;
+					max-width: 220px;
+					bottom: 35px;
+					left: 4px;
+				}
+			}
+
+			/* Landscape mobile */
+			@media (max-height: 500px) and (orientation: landscape) {
+				#status-hud {
+					font-size: 10px;
+					padding: 5px 7px;
+					max-width: 200px;
+					bottom: 30px;
+				}
+			}
+
+			/* iPad / tablet */
+			@media (min-width: 481px) and (max-width: 1024px) {
+				#status-hud {
+					font-size: 11px;
+					max-width: 250px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div id="info">
+			<div></div>
+		</div>
+
+		<!-- Status HUD - permanently displayed -->
+		<div id="status-hud">
+			<div class="hud-row">
+				<span class="hud-label">WS</span>
+				<span class="hud-value"><span id="ws-indicator" class="ws-disconnected"></span><span id="hud-ws">Disconnected</span></span>
+			</div>
+			<div class="hud-divider"></div>
+			<div class="hud-row">
+				<span class="hud-label">Fix</span>
+				<span class="hud-value" id="hud-fix"><span class="fix-none">None</span></span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">State</span>
+				<span class="hud-value" id="hud-state">---</span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">Time</span>
+				<span class="hud-value" id="hud-time"><span class="time-none">None</span></span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">IMU Cal</span>
+				<span class="hud-value" id="hud-imu">---</span>
+			</div>
+			<div class="hud-divider"></div>
+			<div class="hud-row">
+				<span class="hud-label">Alt</span>
+				<span class="hud-value" id="hud-alt">---</span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">V.Vel</span>
+				<span class="hud-value" id="hud-vvel">---</span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">PPS</span>
+				<span class="hud-value" id="hud-pps">---</span>
+			</div>
+			<div class="hud-row">
+				<span class="hud-label">Faults</span>
+				<span class="hud-value" id="hud-faults"><span class="fault-ok">None</span></span>
+			</div>
+		</div>
+
+		<div id="footer">
+			<div id="credits"></div>
+			<div id="logos">
+				<img src="./logos/google.png" />
+				<img src="./logos/cesiumion.png" />
+			</div>
+		</div>
+
+		<script type="module" src="./gp02tracker.js"></script>
+	</body>
+</html>
