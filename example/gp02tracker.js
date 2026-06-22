@@ -418,11 +418,16 @@ function initTrailMesh() {
 }
 
 function initConeMesh() {
-	// ConeGeometry tip points along +Y by default.
-	// BNO085 "forward" (identity quaternion) is +X in ENU.
-	// Rotate cone so tip points along +X to match sensor forward direction.
+	// ConeGeometry tip points along +Y by default — which IS the GP-02's
+	// head-FORWARD axis, so no rotation is needed.
+	//
+	// The chip's body axes were validated empirically on a 95k-sample Hongo
+	// recording (head azimuth vs GNSS travel heading) AND against the chip's
+	// own output pose: forward = body +Y, up = body +X, right = body +Z.
+	// The earlier "forward = +X" assumption was wrong — +X is UP, so the old
+	// `rotateZ(PI/2)` made the cone point straight up. Dropping it points the
+	// cone along the actual head-forward direction.
 	const geo = new ConeGeometry(0.4, 2.0, 8);
-	geo.rotateZ(Math.PI / 2);
 	const mat = new MeshBasicMaterial({
 		color: CONE_COLOR,
 		transparent: true,
